@@ -22,7 +22,7 @@ export default async function handler(req, res) {
 
   // 3. Формируем параметры для кассы RollyPay
   const merchantId = process.env.ROLLYPAY_MERCHANT_ID || 'DEMO_MERCHANT';
-  const amount = '49';
+  const amount = '19';
   const orderId = `card_${Date.now()}`;
 
   // Если ключи RollyPay еще не вписаны — сразу отдаем готовую ссылку для теста!
