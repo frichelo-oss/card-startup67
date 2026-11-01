@@ -35,7 +35,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         terminal_id: terminalId,
-        amount: '100.00',
+        amount: '9.00',
         payment_currency: 'RUB',
         order_id: `order_${Date.now()}`
       })
