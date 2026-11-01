@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Интерактивная открытка</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <style>
+    body {
+      background: radial-gradient(circle at top left, #1e1b4b, #0f172a, #020617);
+      min-height: 100vh;
+      color: #fff;
+      font-family: system-ui, -apple-system, sans-serif;
+      overflow-x: hidden;
+    }
+    .glass {
+      background: rgba(255, 255, 255, 0.07);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .watermark {
+      background: repeating-linear-gradient(-45deg, rgba(255,255,255,0.03), rgba(255,255,255,0.03) 20px, rgba(255,255,255,0.08) 20px, rgba(255,255,255,0.08) 40px);
+    }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-center p-4">
+
+  <!-- РЕЖИМ 1: КОНСТРУКТОР (видит покупатель) -->
+  <div id="editor-view" class="w-full max-w-md space-y-6 my-6">
+    <div class="text-center space-y-1">
+      <h1 class="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+        Конструктор мини-сайтов
+      </h1>
+      <p class="text-xs text-slate-400">Собери интерактивную страницу за 1 минуту</p>
+    </div>
+
+    <!-- Поля ввода -->
+    <div class="glass rounded-2xl p-5 space-y-4">
+      <div>
+        <label class="text-xs text-slate-300">Кому (Имя или обращение)</label>
+        <input id="inp-to" type="text" value="Братан" oninput="updatePreview()"
+          class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-900/80 border border-slate-700 text-sm focus:outline-none focus:border-indigo-500">
+      </div>
+      <div>
+        <label class="text-xs text-slate-300">Текст сообщения или вопрос</label>
+        <textarea id="inp-text" rows="3" oninput="updatePreview()"
+          class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-900/80 border border-slate-700 text-sm focus:outline-none focus:border-indigo-500">С днем рождения! Желаю стальных нервов, мощного прогресса и полных карманов кэша. Проставишься сегодня?</textarea>
+      </div>
+      <div>
+        <label class="text-xs text-slate-300">Режим интерактива</label>
+        <select id="inp-mode" onchange="updatePreview()"
+          class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-900/80 border border-slate-700 text-sm focus:outline-none focus:border-indigo-500">
+          <option value="prank">Убегающая кнопка «Нет» + Салют</option>
+          <option value="gift">Секретная коробка с конфетти</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Живое превью с водяным знаком -->
+    <div class="relative rounded-2xl overflow-hidden border border-indigo-500/30">
+      <div class="absolute inset-0 watermark pointer-events-none flex items-center justify-center z-20">
+        <span class="px-3 py-1 rounded-full bg-black/70 text-xs font-semibold tracking-widest text-indigo-300 border border-indigo-500/40">
+          ДЕМО-РЕЖИМ (ПРЕВЬЮ)
+        </span>
+      </div>
+      <div id="preview-box" class="p-6 glass text-center space-y-4"></div>
+    </div>
+
+    <!-- Кнопка оплаты -->
+    <button onclick="buyCard()" id="pay-btn"
+      class="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 font-bold text-sm shadow-lg shadow-indigo-500/25 transition">
+      Снять защиту и получить ссылку — 149 ₽
+    </button>
+  </div>
+
+  <!-- РЕЖИМ 2: ГОТОВАЯ ОТКРЫТКА (видит получатель по ссылке) -->
+  <div id="card-view" class="hidden w-full max-w-md">
+    <div id="card-content" class="glass rounded-3xl p-8 text-center space-y-6 shadow-2xl relative overflow-hidden"></div>
+    
+    <!-- Вирусная петля (бесплатный трафик) -->
+    <div class="text-center mt-6">
+      <a href="/" class="inline-block text-xs text-slate-400 hover:text-indigo-300 transition underline underline-offset-4">
+        Понравилось? Создай такую же открытку за 1 минуту :)
+      </a>
+    </div>
+  </div>
+
+  <script>
+    // Отрисовка карточки
+    function renderCardHTML(data) {
+      const buttonsHTML = data.mode === 'prank'
+        ? `<div class="flex gap-3 justify-center pt-2 relative h-12">
+             <button onclick="fireConfetti()" class="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 font-bold text-sm transition">Да, конечно!</button>
+             <button id="run-btn" onmouseover="runAway(this)" ontouchstart="runAway(this)" class="px-6 py-2.5 rounded-xl bg-rose-600 font-bold text-sm transition">Нет</button>
+           </div>`
+        : `<button onclick="fireConfetti()" class="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-pink-500 font-bold text-sm shadow-lg">Нажми, чтобы открыть!</button>`;
+
+      return `
+        <div class="w-14 h-14 mx-auto rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-2xl font-bold text-indigo-300">
+          ★
+        </div>
+        <h2 class="text-2xl font-extrabold tracking-tight">${escapeHTML(data.to)}!</h2>
+        <p class="text-slate-200 text-sm leading-relaxed whitespace-pre-line">${escapeHTML(data.text)}</p>
+        ${buttonsHTML}
+      `;
+    }
+
+    function escapeHTML(str) {
+      return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag]));
+    }
+
+    function updatePreview() {
+      const data = {
+        to: document.getElementById('inp-to').value || 'Друг',
+        text: document.getElementById('inp-text').value || 'Поздравляю!',
+        mode: document.getElementById('inp-mode').value
+      };
+      document.getElementById('preview-box').innerHTML = renderCardHTML(data);
+    }
+
+    // Убегающая кнопка
+    function runAway(btn) {
+      const x = (Math.random() - 0.5) * 200;
+      const y = (Math.random() - 0.5) * 120;
+      btn.style.transform = `translate(${x}px, ${y}px)`;
+    }
+
+    // Взрыв конфетти
+    function fireConfetti() {
+      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+    }
+
+    // Переход к оплате RollyPay
+    async function buyCard() {
+      const btn = document.getElementById('pay-btn');
+      btn.innerText = 'Создаем счет в RollyPay...';
+      btn.disabled = true;
+
+      const payload = {
+        to: document.getElementById('inp-to').value,
+        text: document.getElementById('inp-text').value,
+        mode: document.getElementById('inp-mode').value
+      };
+
+      const res = await fetch('/api/create-pay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const result = await res.json();
+      if (result.payUrl) {
+        window.location.href = result.payUrl;
+      } else {
+        alert('Ошибка создания платежа');
+        btn.innerText = 'Снять защиту и получить ссылку — 149 ₽';
+        btn.disabled = false;
+      }
+    }
+
+    // Проверка: открыт редактор или готовая оплаченная ссылка
+    async function init() {
+      const params = new URLSearchParams(window.location.search);
+      const dataStr = params.get('d');
+      const sig = params.get('s');
+
+      if (dataStr && sig) {
+        const res = await fetch(`/api/verify?d=${encodeURIComponent(dataStr)}&s=${encodeURIComponent(sig)}`);
+        const check = await res.json();
+        if (check.valid) {
+          document.getElementById('editor-view').classList.add('hidden');
+          document.getElementById('card-view').classList.remove('hidden');
+          document.getElementById('card-content').innerHTML = renderCardHTML(check.data);
+          setTimeout(fireConfetti, 400);
+          return;
+        }
+      }
+      updatePreview();
+    }
+
+    init();
+  </script>
+</body>
+</html>
